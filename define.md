@@ -144,3 +144,208 @@
 ---
 
 このAWSアーキテクチャ設計は、TypeScriptを用いて実装されるアプリケーション（バックエンド、Webフロントエンド、モバイル）とシームレスに連携し、効率的な開発・運用、そして高い拡張性と信頼性を提供することを目的としています。
+
+# 実装詳細
+
+## バックエンドAPI仕様 (v1 - 2025/04/01時点)
+
+ベースURL: `http://localhost:3000` (開発時)
+
+### 認証 (Auth)
+
+#### `POST /auth/register`
+
+-   **説明:** 新規ユーザーを登録する。
+-   **リクエストボディ:**
+    ```json
+    {
+      "email": "user@example.com",
+      "password": "yourpassword" 
+    }
+    ```
+    *(注意: passwordは8文字以上などのバリデーションが別途必要)*
+-   **レスポンス (成功時):** `201 Created`
+    ```json
+    {
+      "id": 1,
+      "email": "user@example.com"
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `409 Conflict`: Eメールアドレスが既に存在する場合
+    ```json
+    {
+      "statusCode": 409,
+      "message": "Email already exists",
+      "error": "Conflict"
+    }
+    ```
+
+#### `POST /auth/login`
+
+-   **説明:** Eメールとパスワードでログインし、JWTアクセストークンを取得する。
+-   **リクエストボディ:**
+    ```json
+    {
+      "email": "user@example.com",
+      "password": "yourpassword"
+    }
+    ```
+-   **レスポンス (成功時):** `201 Created` (NestJSのデフォルト。200 OKが適切な場合もある)
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: Eメールまたはパスワードが間違っている場合
+    ```json
+    {
+      "statusCode": 401,
+      "message": "Invalid credentials",
+      "error": "Unauthorized"
+    }
+    ```
+
+#### `GET /auth/profile`
+
+-   **説明:** 認証済みユーザーのプロフィール情報（IDとEメール）を取得する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **レスポンス (成功時):** `200 OK`
+    ```json
+    {
+      "id": 1,
+      "email": "user@example.com"
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+
+### ワークアウト記録 (Workout)
+
+#### `POST /workout`
+
+-   **説明:** 新しいワークアウト記録を作成する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **リクエストボディ:**
+    ```json
+    {
+      "exerciseName": "Bench Press",
+      "sets": 3,
+      "reps": 10,
+      "weight": 60
+    }
+    ```
+    *(注意: 各フィールドのバリデーションが別途必要)*
+-   **レスポンス (成功時):** `201 Created`
+    ```json
+    {
+      "id": 1,
+      "userId": 1,
+      "exerciseName": "Bench Press",
+      "sets": 3,
+      "reps": 10,
+      "weight": 60,
+      "recordedAt": "2025-03-31T18:06:45.674Z" 
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+
+#### `GET /workout`
+
+-   **説明:** 認証済みユーザーの全てのワークアウト記録を取得する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **レスポンス (成功時):** `200 OK`
+    ```json
+    [
+      {
+        "id": 1,
+        "userId": 1,
+        "exerciseName": "Bench Press",
+        "sets": 3,
+        "reps": 10,
+        "weight": 60,
+        "recordedAt": "2025-03-31T18:06:45.674Z"
+      }
+      // ... 他の記録
+    ]
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+
+### ワークアウトプラン (Workout Plan)
+
+#### `POST /workout-plans`
+
+-   **説明:** 新しいワークアウトプランを作成する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **リクエストボディ:**
+    ```json
+    {
+      "name": "My First Plan",
+      "description": "Beginner full body workout",
+      "items": [
+        {"exerciseName": "Squat", "targetSets": 3, "targetReps": 12},
+        {"exerciseName": "Push Up", "targetSets": 3, "targetReps": 10}
+      ]
+    }
+    ```
+    *(注意: 各フィールドのバリデーションが別途必要)*
+-   **レスポンス (成功時):** `201 Created`
+    ```json
+    {
+      "id": 1,
+      "userId": 1,
+      "name": "My First Plan",
+      "description": "Beginner full body workout",
+      "items": [
+        {"exerciseName": "Squat", "targetSets": 3, "targetReps": 12, "id": 1},
+        {"exerciseName": "Push Up", "targetSets": 3, "targetReps": 10, "id": 2}
+      ],
+      "createdAt": "2025-03-31T18:08:35.156Z",
+      "updatedAt": "2025-03-31T18:08:35.156Z"
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+
+#### `GET /workout-plans`
+
+-   **説明:** 認証済みユーザーの全てのワークアウトプランを取得する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **レスポンス (成功時):** `200 OK`
+    ```json
+    [
+      {
+        "id": 1,
+        "userId": 1,
+        "name": "My First Plan",
+        // ... 他のフィールド ...
+        "items": [ /* ... */ ]
+      }
+      // ... 他のプラン
+    ]
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+
+#### `GET /workout-plans/:id`
+
+-   **説明:** 特定のIDのワークアウトプランを取得する。
+-   **認証:** 要JWT (`Authorization: Bearer <token>`)
+-   **URLパラメータ:**
+    -   `id`: 取得したいプランのID (数値)
+-   **レスポンス (成功時):** `200 OK`
+    ```json
+    {
+      "id": 1,
+      "userId": 1,
+      "name": "My First Plan",
+      // ... 他のフィールド ...
+      "items": [ /* ... */ ]
+    }
+    ```
+-   **レスポンス (失敗時):**
+    -   `401 Unauthorized`: JWTが無効または提供されていない場合
+    -   `404 Not Found`: 指定されたIDのプランが存在しない、またはユーザーが所有していない場合
