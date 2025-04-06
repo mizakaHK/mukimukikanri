@@ -12,7 +12,7 @@ import { JwtStrategy } from './jwt.strategy'; // JwtStrategyをインポート
     UserModule, // UserServiceを利用可能にする
     PassportModule, // Passport機能を利用可能にする
     JwtModule.register({
-      secret: 'YOUR_SECRET_KEY', // ★重要: 本番環境では環境変数などから読み込む安全な秘密鍵を使用すること
+      secret: process.env.JWT_SECRET || 'development_secret_key', // 環境変数から読み込み、なければ開発用キーを使用
       signOptions: { expiresIn: '60m' }, // トークンの有効期限 (例: 60分)
     }),
   ],
